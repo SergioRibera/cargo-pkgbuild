@@ -1,5 +1,5 @@
-use hmac_sha256::Hash;
 use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use srtemplate::SrTemplate;
 
 use crate::error::Error;
@@ -93,10 +93,10 @@ impl Package {
     }
 
     pub fn sha256sum(&self, tar: String) -> Result<String, Error> {
-        let bytes = std::fs::read(tar)?;
-        let digest = Hash::hash(&bytes);
-        let hex = digest.iter().map(|u| format!("{:02x}", u)).collect();
-        Ok(hex)
+        let file = std::fs::read(tar)?;
+        let mut hasher = Sha256::default();
+        hasher.update(&file);
+        Ok(format!("{:x}", hasher.finalize()))
     }
 }
 

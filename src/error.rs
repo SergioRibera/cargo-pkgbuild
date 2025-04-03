@@ -16,7 +16,8 @@ pub enum Error {
     Utf8OsString,
     MissingMuslTarget,
     MissingLicense,
-    TempateError(srtemplate::SrTemplateError),
+    TempateError(srtemplate::Error),
+    CheckSum(String),
 }
 
 impl Display for Error {
@@ -34,6 +35,7 @@ impl Display for Error {
                 write!(f, "Missing LICENSE file. See https://choosealicense.com/")
             }
             Error::TempateError(e) => write!(f, "Error Rendering Text Template: {}", e),
+            Error::CheckSum(e) => write!(f, "Error generating 256 checksum: {}", e),
         }
     }
 }
@@ -68,8 +70,14 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<srtemplate::SrTemplateError> for Error {
-    fn from(v: srtemplate::SrTemplateError) -> Self {
+impl From<srtemplate::Error> for Error {
+    fn from(v: srtemplate::Error) -> Self {
         Self::TempateError(v)
+    }
+}
+
+impl From<String> for Error {
+    fn from(v: String) -> Self {
+        Self::CheckSum(v)
     }
 }
