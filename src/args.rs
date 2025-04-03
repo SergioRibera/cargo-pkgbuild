@@ -46,26 +46,65 @@ impl CargoAurActions {
         let generated_file = match self {
             CargoAurActions::Build { musl } => build_package(*musl, output, config, licenses)?,
             CargoAurActions::Generate { input } => {
-                let output_file = output.join(input.file_name().ok_or(std::io::Error::new(
+                if !input.exists() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Input file does not exist: {}", input.display()),
+                    )
+                    .into());
+                }
+
+                let input_name = input.file_name().ok_or(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
                     "Invalid input filename",
-                ))?);
+                ))?;
 
-                if input.canonicalize()? == output_file.canonicalize()? {
+                let output_file = output.join(input_name);
+
+                if input == &output_file {
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
-                        "Cannot copy file to itself - would cause data loss!",
+                        "Input and output paths are identical - would cause data loss!",
+                    )
+                    .into());
+                }
+
+                let input_abs = std::fs::canonicalize(input)?;
+                let output_parent_abs = std::fs::canonicalize(output)?;
+                let output_file_abs = output_parent_abs.join(input_name);
+
+                if input_abs == output_file_abs {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Cannot copy file to itself (absolute paths match)",
+                    )
+                    .into());
+                }
+
+                if !output.exists() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("Output directory does not exist: {}", output.display()),
                     )
                     .into());
                 }
 
                 std::fs::copy(input, &output_file)?;
-                output_file.to_str().unwrap().to_string()
+                output_file
+                    .to_str()
+                    .ok_or_else(|| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "Output path is not valid UTF-8",
+                        )
+                    })?
+                    .to_string()
             }
         };
 
         let ctx_template = SrTemplate::default();
         config.package.fill_template(&ctx_template);
+
         let pkgbuild_path = output.join("PKGBUILD");
         let file = BufWriter::new(File::create(pkgbuild_path)?);
         let sha256 = config.package.sha256sum(generated_file)?;
