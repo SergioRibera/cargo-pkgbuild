@@ -55,6 +55,7 @@ impl Package {
         ctx.add_variable("name", &self.name);
         ctx.add_variable("version", &self.version);
         ctx.add_variable("repository", &self.repository);
+        ctx.add_variable("arch", &"x86_64");
     }
 
     pub fn template_name(&self) -> String {
