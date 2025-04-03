@@ -46,20 +46,29 @@ impl CargoAurActions {
         let generated_file = match self {
             CargoAurActions::Build { musl } => build_package(*musl, output, config, licenses)?,
             CargoAurActions::Generate { input } => {
-                let file = output.as_path();
-                std::fs::copy(input.as_path(), file.join(input.file_name().unwrap()))?;
-                input.to_str().unwrap_or_default().to_string()
+                let output_file = output.join(input.file_name().ok_or(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "Invalid input filename",
+                ))?);
+
+                if input.canonicalize()? == output_file.canonicalize()? {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "Cannot copy file to itself - would cause data loss!",
+                    )
+                    .into());
+                }
+
+                std::fs::copy(input, &output_file)?;
+                output_file.to_str().unwrap().to_string()
             }
         };
 
         let ctx_template = SrTemplate::default();
         config.package.fill_template(&ctx_template);
-
-        let mut file = output.clone();
-        file.push("PKGBUILD");
-        let file = BufWriter::new(File::create(file)?);
-
-        let sha256: String = config.package.sha256sum(generated_file)?;
+        let pkgbuild_path = output.join("PKGBUILD");
+        let file = BufWriter::new(File::create(pkgbuild_path)?);
+        let sha256 = config.package.sha256sum(generated_file)?;
 
         pkgbuild(ctx_template, file, config, &sha256, licenses)
     }

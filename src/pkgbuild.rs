@@ -6,7 +6,6 @@ use srtemplate::SrTemplate;
 use crate::error::Error;
 use crate::metadata::Config;
 
-
 /// Write a legal PKGBUILD to some `Write` instance (a `File` in this case).
 pub fn pkgbuild<T>(
     ctx: SrTemplate,
@@ -57,7 +56,7 @@ where
     writeln!(file, "package() {{")?;
     writeln!(
         file,
-        "    install -Dm755 {} -t \"$pkgdir/usr/bin\"",
+        "    find . -name '{}' -type f -executable -exec install -Dm755 {{}} -t \"$pkgdir/usr/bin\" \\;",
         config.binary_name()
     )?;
 
