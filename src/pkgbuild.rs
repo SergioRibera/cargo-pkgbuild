@@ -60,14 +60,50 @@ where
         config.binary_name()
     )?;
 
-    for lic in license {
-        let file_name = lic
-            .file_name()
-            .into_string()
-            .map_err(|_| Error::Utf8OsString)?;
+    writeln!(file, "    mkdir -p \"$pkgdir/usr/share/licenses/$pkgname\"")?;
+
+    if !license.is_empty() {
+        writeln!(file, "\n    # Instalación opcional de licencias")?;
+        writeln!(file, "    if [[ -d \"$srcdir\" ]]; then")?;
         writeln!(
             file,
-            "    install -Dm644 {file_name} \"$pkgdir/usr/share/licenses/$pkgname/{file_name}\"",
+            "        mkdir -p \"$pkgdir/usr/share/licenses/$pkgname\""
+        )?;
+        writeln!(file, "        pushd \"$srcdir\" >/dev/null")?;
+
+        for lic in license {
+            let file_name = lic.file_name();
+            let file_name = file_name.to_string_lossy();
+            writeln!(
+                file,
+                "        if [[ -f \"{}\" && -s \"{}\" ]]; then",
+                file_name, file_name
+            )?;
+            writeln!(
+                file,
+                "            install -Dm644 \"{}\" \"$pkgdir/usr/share/licenses/$pkgname/{}\"",
+                file_name, file_name
+            )?;
+            writeln!(file, "        else")?;
+            writeln!(
+                file,
+                "            echo \"Warning: License file '{}' missing or empty - skipping\" >&2",
+                file_name
+            )?;
+            writeln!(file, "        fi")?;
+        }
+
+        writeln!(file, "        popd >/dev/null")?;
+        writeln!(file, "    else")?;
+        writeln!(
+            file,
+            "        echo \"Warning: No license files found in $srcdir\" >&2"
+        )?;
+        writeln!(file, "    fi")?;
+    } else {
+        writeln!(
+            file,
+            "    echo \"Notice: No license files included in this package\" >&2"
         )?;
     }
 
